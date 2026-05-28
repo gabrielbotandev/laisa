@@ -216,4 +216,4 @@ shai
 
 ## License
 
-Apache-2.0 (see project license file if provided).
+Licensed under the MIT License; see [LICENSE](LICENSE).
