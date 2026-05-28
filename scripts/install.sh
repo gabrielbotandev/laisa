@@ -105,6 +105,7 @@ python3 -m venv "$VENV_DIR"
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 pip install --upgrade pip
+# Pinned latest stable: openvino-genai (pulls aligned openvino + tokenizers), huggingface_hub
 pip install -r "$BACKEND_DIR/requirements.txt"
 deactivate
 

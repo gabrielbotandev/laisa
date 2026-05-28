@@ -171,15 +171,29 @@ Export `HF_TOKEN` with a valid Hugging Face token before downloading.
 
 Ensure `~/.local/bin` is in your `PATH`.
 
-**OpenVINO library errors (`libopenvino.so` not found)**
+**After upgrading shai (Python dependency bump)**
 
-Reinstall so `openvino`, `openvino-genai`, and `openvino-tokenizers` versions match:
+Recreate the venv so `openvino-genai` 2026.1.x and `huggingface_hub` 1.16.x install cleanly:
 
 ```bash
+rm -rf ~/.local/share/shai/.venv
 ./scripts/install.sh
 ```
 
-If you upgraded packages manually, align them in `~/.local/share/shai/backend/requirements.txt` and run `pip install -r` inside the venv.
+On macOS, use `~/Library/Application Support/shai/.venv` instead of `~/.local/share/shai/.venv`.
+
+**OpenVINO library errors (`libopenvino.so` not found)**
+
+Reinstall the venv (do not pin `openvino` separately — `openvino-genai` pulls matching packages):
+
+```bash
+rm -rf ~/.local/share/shai/.venv
+./scripts/install.sh
+```
+
+**Python 3.14**
+
+`openvino-genai` wheels on PyPI may lag behind the newest Python. If `pip install` fails, create the venv with Python 3.12 or 3.13 (`python3.13 -m venv ...`).
 
 ## Uninstall
 
