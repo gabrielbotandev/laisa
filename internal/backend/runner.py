@@ -9,6 +9,8 @@ import os
 import sys
 from pathlib import Path
 
+DEFAULT_CONTEXT_LIMIT = 32768
+
 
 def emit(obj: dict) -> None:
     print(json.dumps(obj, ensure_ascii=False), flush=True)
@@ -28,6 +30,80 @@ def dir_nonempty(path: Path) -> bool:
             continue
         return True
     return False
+
+
+def read_context_limit(model_path: str) -> int:
+    config_path = Path(model_path) / "config.json"
+    if not config_path.is_file():
+        return DEFAULT_CONTEXT_LIMIT
+    try:
+        with config_path.open(encoding="utf-8") as f:
+            cfg = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return DEFAULT_CONTEXT_LIMIT
+
+    value = cfg.get("max_position_embeddings")
+    if isinstance(value, int) and value > 0:
+        return value
+
+    text_cfg = cfg.get("text_config")
+    if isinstance(text_cfg, dict):
+        value = text_cfg.get("max_position_embeddings")
+        if isinstance(value, int) and value > 0:
+            return value
+
+    return DEFAULT_CONTEXT_LIMIT
+
+
+def token_count(tokenizer, text: str) -> int:
+    if not text:
+        return 0
+    try:
+        encoded = tokenizer.encode(text)
+        ids = encoded.input_ids
+        if hasattr(ids, "shape"):
+            shape = ids.shape
+            if len(shape) == 0:
+                return 0
+            return int(shape[-1])
+        if hasattr(ids, "__len__"):
+            return len(ids)
+    except Exception:  # noqa: BLE001
+        pass
+    return max(1, len(text) // 4)
+
+
+def count_history_tokens(pipe, history) -> int:
+    tokenizer = pipe.get_tokenizer()
+
+    if hasattr(history, "get_prompt"):
+        try:
+            prompt = history.get_prompt()
+            if prompt:
+                return token_count(tokenizer, str(prompt))
+        except Exception:  # noqa: BLE001
+            pass
+
+    # Fallback: sum tokens per message content.
+    total = 0
+    try:
+        if hasattr(history, "messages"):
+            messages = history.messages
+        elif hasattr(history, "get_messages"):
+            messages = history.get_messages()
+        else:
+            messages = list(history)
+    except Exception:  # noqa: BLE001
+        messages = []
+
+    for msg in messages:
+        if isinstance(msg, dict):
+            content = msg.get("content", "")
+        else:
+            content = getattr(msg, "content", str(msg))
+        if content:
+            total += token_count(tokenizer, str(content))
+    return total
 
 
 def build_chat_history(payload: dict):
@@ -67,6 +143,11 @@ def build_chat_history(payload: dict):
     return history
 
 
+def append_assistant(history, text: str):
+    if text:
+        history.append({"role": "assistant", "content": text})
+
+
 def cmd_generate(_args: argparse.Namespace) -> int:
     try:
         raw = sys.stdin.read()
@@ -82,15 +163,19 @@ def cmd_generate(_args: argparse.Namespace) -> int:
 
     device = (payload.get("device") or "CPU").upper()
     max_tokens = int(payload.get("max_tokens") or 1000)
+    context_limit = read_context_limit(str(model_path))
 
     try:
         import openvino_genai as ov_genai
 
         pipe = ov_genai.LLMPipeline(str(model_path), device)
+        emit({"type": "ready", "context_limit": context_limit})
+
         config = ov_genai.GenerationConfig()
         config.max_new_tokens = max_tokens
 
         history = build_chat_history(payload)
+        prompt_tokens = count_history_tokens(pipe, history)
         full_text: list[str] = []
 
         def streamer(subword: str):
@@ -108,7 +193,19 @@ def cmd_generate(_args: argparse.Namespace) -> int:
         else:
             assistant = "".join(full_text)
 
-        emit({"type": "done", "text": assistant})
+        history_after = build_chat_history(payload)
+        append_assistant(history_after, assistant)
+        context_tokens = count_history_tokens(pipe, history_after)
+        completion_tokens = max(0, context_tokens - prompt_tokens)
+
+        usage = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "context_tokens": context_tokens,
+            "context_limit": context_limit,
+        }
+        emit({"type": "usage", "usage": usage})
+        emit({"type": "done", "text": assistant, "usage": usage})
         return 0
     except Exception as exc:  # noqa: BLE001
         emit_error(str(exc))

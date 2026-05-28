@@ -12,36 +12,19 @@ import (
 	"github.com/shai/shai/internal/backend"
 )
 
+const chatShortcutsLine = "pgup/pgdn scroll · end latest · ctrl+m models · ctrl+d download · ctrl+s settings · ctrl+h help · ctrl+c quit"
+
 func (m *Model) viewChat() string {
-	header := styleHeader.Render(fmt.Sprintf("shai  │  model: %s  │  device: %s  │  max tokens: %d",
-		emptyFallback(m.modelName, "(none)"),
-		m.runOpts.Device,
-		m.runOpts.MaxTokens,
+	topBar := styleTopBar.Width(m.width).Render(lipgloss.JoinVertical(lipgloss.Left,
+		styleHeader.Render("shai"),
+		styleShortcuts.Render(chatShortcutsLine),
 	))
 
-	chat := m.viewport.View()
-	input := m.input.View()
-
-	status := m.statusMsg
-	if status == "" {
-		status = "Ready"
-	}
-	if m.busy {
-		status = "Generating…"
-	}
-	statusLine := styleStatus.Render(status)
-	if m.errMsg != "" {
-		statusLine += "  " + styleError.Render(m.errMsg)
-	}
-
-	helpHint := styleStatus.Render("Ctrl+H help · Ctrl+M models · Ctrl+D download · Ctrl+S settings")
-
 	return lipgloss.JoinVertical(lipgloss.Left,
-		header,
-		chat,
-		styleBorder.Render(input),
-		statusLine,
-		helpHint,
+		topBar,
+		m.renderConversation(),
+		m.renderComposer(),
+		m.viewFooter(),
 	)
 }
 
@@ -50,6 +33,123 @@ func emptyFallback(s, fallback string) string {
 		return fallback
 	}
 	return s
+}
+
+func usageFromBackend(u *backend.UsageStats) genUsage {
+	if u == nil {
+		return genUsage{}
+	}
+	return genUsage{
+		PromptTokens:     u.PromptTokens,
+		CompletionTokens: u.CompletionTokens,
+		ContextTokens:    u.ContextTokens,
+		ContextLimit:     u.ContextLimit,
+	}
+}
+
+// handleChatKeybinding handles chat-screen shortcuts. Returns true when the key was consumed.
+func (m *Model) handleChatKeybinding(msg tea.KeyMsg) (bool, tea.Cmd) {
+	if m.busy && msg.String() == "esc" {
+		if m.cancel != nil {
+			m.cancel()
+		}
+		m.busy = false
+		m.statusMsg = "Cancelled"
+		return true, nil
+	}
+
+	switch msg.String() {
+	case "ctrl+c", "ctrl+q":
+		return true, tea.Quit
+	case "ctrl+l":
+		m.messages = nil
+		m.resetContextStats()
+		m.refreshViewport()
+		m.errMsg = ""
+		return true, nil
+	case "ctrl+h":
+		m.screen = ScreenHelp
+		return true, nil
+	case "ctrl+m", "alt+m":
+		if m.busy {
+			return true, nil
+		}
+		m.screen = ScreenModelPicker
+		return true, m.refreshModels()
+	case "ctrl+d":
+		m.screen = ScreenDownload
+		m.dlRepo = ""
+		m.dlName = ""
+		m.dlField = 0
+		return true, nil
+	case "ctrl+s":
+		m.screen = ScreenSettings
+		m.settingsEdit = m.cfg
+		m.settingsField = 0
+		return true, nil
+	case "esc":
+		m.input.SetValue("")
+		return true, nil
+	case "enter":
+		if m.busy {
+			return true, nil
+		}
+		text := strings.TrimSpace(m.input.Value())
+		if text == "" {
+			return true, nil
+		}
+		m.input.SetValue("")
+		if strings.HasPrefix(text, "/") {
+			_, cmd := m.handleSlashCommand(text)
+			return true, cmd
+		}
+		m.messages = append(m.messages, ChatMessage{Role: "user", Content: text})
+		m.messages = append(m.messages, ChatMessage{Role: "assistant", Content: ""})
+		m.stickToBottom = true
+		m.refreshViewport()
+		m.busy = true
+		m.errMsg = ""
+		m.statusMsg = "Loading model…"
+		return true, m.runGeneration()
+	}
+
+	return false, nil
+}
+
+// handleViewportScroll scrolls the conversation when not handled by the input.
+func (m *Model) handleViewportScroll(msg tea.KeyMsg) (bool, tea.Cmd) {
+	var cmd tea.Cmd
+	switch msg.String() {
+	case "pgup", "ctrl+u":
+		m.viewport, cmd = m.viewport.Update(msg)
+		m.stickToBottom = false
+		return true, cmd
+	case "pgdown":
+		m.viewport, cmd = m.viewport.Update(msg)
+		m.stickToBottom = m.viewport.AtBottom()
+		return true, cmd
+	case "home":
+		m.viewport.GotoTop()
+		m.stickToBottom = false
+		return true, nil
+	case "end":
+		m.viewport.GotoBottom()
+		m.stickToBottom = true
+		return true, nil
+	case "up":
+		if msg.Alt {
+			m.viewport.LineUp(1)
+			m.stickToBottom = false
+			return true, nil
+		}
+	case "down":
+		if msg.Alt {
+			m.viewport.LineDown(1)
+			m.stickToBottom = m.viewport.AtBottom()
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -67,66 +167,6 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case ScreenSettings:
 		return m.handleSettingsKey(msg)
 	}
-
-	// Chat screen
-	if m.busy && msg.String() == "esc" {
-		if m.cancel != nil {
-			m.cancel()
-		}
-		m.busy = false
-		m.statusMsg = "Cancelled"
-		return m, nil
-	}
-
-	switch msg.String() {
-	case "ctrl+c", "ctrl+q":
-		return m, tea.Quit
-	case "ctrl+l":
-		m.messages = nil
-		m.refreshViewport()
-		m.errMsg = ""
-		return m, nil
-	case "ctrl+h":
-		m.screen = ScreenHelp
-		return m, nil
-	case "ctrl+m":
-		m.screen = ScreenModelPicker
-		return m, m.refreshModels()
-	case "ctrl+d":
-		m.screen = ScreenDownload
-		m.dlRepo = ""
-		m.dlName = ""
-		m.dlField = 0
-		return m, nil
-	case "ctrl+s":
-		m.screen = ScreenSettings
-		m.settingsEdit = m.cfg
-		m.settingsField = 0
-		return m, nil
-	case "esc":
-		m.input.SetValue("")
-		return m, nil
-	case "enter":
-		if m.busy {
-			return m, nil
-		}
-		text := strings.TrimSpace(m.input.Value())
-		if text == "" {
-			return m, nil
-		}
-		if strings.HasPrefix(text, "/") {
-			return m.handleSlashCommand(text)
-		}
-		m.input.SetValue("")
-		m.messages = append(m.messages, ChatMessage{Role: "user", Content: text})
-		m.messages = append(m.messages, ChatMessage{Role: "assistant", Content: ""})
-		m.refreshViewport()
-		m.busy = true
-		m.errMsg = ""
-		m.statusMsg = "Loading model…"
-		return m, m.runGeneration()
-	}
-
 	return m, nil
 }
 
@@ -149,6 +189,7 @@ func (m *Model) handleSlashCommand(text string) (tea.Model, tea.Cmd) {
 		m.modelName = args[0]
 		m.errMsg = ""
 		m.statusMsg = "Model set to " + args[0]
+		return m, m.refreshContextLimit()
 	case "download":
 		if len(args) == 0 {
 			m.screen = ScreenDownload
@@ -175,9 +216,10 @@ func (m *Model) handleSlashCommand(text string) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.runOpts.MaxTokens = n
-		m.statusMsg = fmt.Sprintf("Max tokens: %d", n)
+		m.statusMsg = fmt.Sprintf("Max output tokens: %d", n)
 	case "clear":
 		m.messages = nil
+		m.resetContextStats()
 		m.refreshViewport()
 		m.errMsg = ""
 	case "config":
@@ -225,15 +267,26 @@ func (m *Model) runGeneration() tea.Cmd {
 	ch := m.genCh
 	go func() {
 		var full string
+		var lastUsage genUsage
 		var genErr error
 		genErr = backend.RunGenerate(ctx, opts, func(ev backend.Event) {
 			switch ev.Type {
+			case "ready":
+				if ev.ContextLimit > 0 {
+					ch <- genReadyMsg{contextLimit: ev.ContextLimit}
+				}
 			case "token":
 				full += ev.Text
 				ch <- genTokenMsg{text: ev.Text}
+			case "usage":
+				lastUsage = usageFromBackend(ev.Usage)
+				ch <- genUsageMsg{usage: lastUsage}
 			case "done":
 				if ev.Text != "" {
 					full = ev.Text
+				}
+				if ev.Usage != nil {
+					lastUsage = usageFromBackend(ev.Usage)
 				}
 			case "error":
 				genErr = fmt.Errorf("%s", ev.Message)
@@ -242,7 +295,7 @@ func (m *Model) runGeneration() tea.Cmd {
 		if genErr != nil {
 			genErr = app.WrapNPUError(opts.Device, genErr)
 		}
-		ch <- genDoneMsg{text: full, err: genErr}
+		ch <- genDoneMsg{text: full, err: genErr, usage: lastUsage}
 		close(ch)
 	}()
 

@@ -25,12 +25,22 @@ var runnerPy []byte
 //go:embed requirements.txt
 var requirementsTxt []byte
 
+// UsageStats is token/context metering from the backend.
+type UsageStats struct {
+	PromptTokens      int `json:"prompt_tokens"`
+	CompletionTokens  int `json:"completion_tokens"`
+	ContextTokens     int `json:"context_tokens"`
+	ContextLimit      int `json:"context_limit"`
+}
+
 // Event is a JSONL event from the Python backend.
 type Event struct {
-	Type    string `json:"type"`
-	Text    string `json:"text"`
-	Message string `json:"message"`
-	Path    string `json:"path"`
+	Type         string      `json:"type"`
+	Text         string      `json:"text"`
+	Message      string      `json:"message"`
+	Path         string      `json:"path"`
+	ContextLimit int         `json:"context_limit"`
+	Usage        *UsageStats `json:"usage"`
 }
 
 // Message is a chat message for generation.

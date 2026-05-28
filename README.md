@@ -89,7 +89,7 @@ shai --help
 shai
 ```
 
-Open the interactive UI: header (model/device), scrollable chat, input area, status bar.
+Open the interactive UI: scrollable transcript on top, composer below it, and a footer with cwd/git branch, session token totals, and context usage (used % vs model limit).
 
 ### Keyboard shortcuts
 
@@ -113,7 +113,7 @@ Open the interactive UI: header (model/device), scrollable chat, input area, sta
 | `/model <name>` | Switch model |
 | `/download <repo>` | Download model |
 | `/device CPU\|NPU\|AUTO` | Set device |
-| `/tokens <n>` | Set max tokens |
+| `/tokens <n>` | Set max output tokens |
 | `/clear` | Clear chat |
 | `/config` | Show config |
 | `/quit` | Exit |

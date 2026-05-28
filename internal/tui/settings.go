@@ -20,7 +20,7 @@ func (m *Model) viewSettings() string {
 		"",
 		"↑/↓: field · type to edit · Enter: save · Esc: cancel",
 	}
-	return styleBorder.Width(m.width - 4).Render(strings.Join(lines, "\n"))
+	return styleBorder.Width(m.width).Render(strings.Join(lines, "\n"))
 }
 
 func fieldMark(current, idx int) string {

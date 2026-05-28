@@ -8,12 +8,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const defaultSystemPrompt = `You are a helpful local AI assistant running on the user's laptop.
-Be concise, practical, and direct.
-For code questions, give useful explanations and runnable examples when appropriate.
-You do not have live internet access.
-`
-
 // Config holds user settings persisted in YAML.
 type Config struct {
 	DefaultModel  string `yaml:"default_model"`
@@ -27,8 +21,8 @@ func DefaultConfig() Config {
 	return Config{
 		DefaultModel:  "",
 		DefaultDevice: "CPU",
-		MaxTokens:     1000,
-		SystemPrompt:  defaultSystemPrompt,
+		MaxTokens:    1000,
+		SystemPrompt: "",
 	}
 }
 
@@ -62,9 +56,6 @@ func LoadOrCreate() (Config, error) {
 	}
 	if cfg.MaxTokens <= 0 {
 		cfg.MaxTokens = 1000
-	}
-	if cfg.SystemPrompt == "" {
-		cfg.SystemPrompt = defaultSystemPrompt
 	}
 
 	return cfg, nil

@@ -3,8 +3,8 @@ package tui
 import (
 	"context"
 	"fmt"
-	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -29,6 +29,14 @@ type ChatMessage struct {
 	Content string
 }
 
+// genUsage holds token/context stats from the backend.
+type genUsage struct {
+	PromptTokens     int
+	CompletionTokens int
+	ContextTokens    int
+	ContextLimit     int
+}
+
 // Model is the root Bubble Tea model.
 type Model struct {
 	screen    Screen
@@ -37,9 +45,10 @@ type Model struct {
 	modelName string
 	modelPath string
 
-	messages []ChatMessage
-	viewport viewport.Model
-	input    textarea.Model
+	messages      []ChatMessage
+	viewport      viewport.Model
+	stickToBottom bool
+	input         textarea.Model
 
 	width  int
 	height int
@@ -49,6 +58,14 @@ type Model struct {
 	busy      bool
 	cancel    context.CancelFunc
 	genCh     chan tea.Msg
+
+	contextUsed   int
+	contextLimit  int
+	sessionPrompt int
+	sessionReply  int
+
+	footerCWD    string
+	footerBranch string
 
 	// Model picker
 	modelList list.Model
@@ -68,23 +85,37 @@ type Model struct {
 // NewProgram creates the TUI program.
 func NewProgram(cfg app.Config, opts app.RunOptions, modelName string) *tea.Program {
 	m := initialModel(cfg, opts, modelName)
-	return tea.NewProgram(&m, tea.WithAltScreen())
+	return tea.NewProgram(&m, tea.WithAltScreen(), tea.WithMouseCellMotion())
 }
 
 func initialModel(cfg app.Config, opts app.RunOptions, modelName string) Model {
 	ta := textarea.New()
+	ta.Prompt = "" // default is a thick left border character (looks like a white bar)
 	ta.Placeholder = "Type a message… (/help for commands)"
 	ta.Focus()
 	ta.CharLimit = 0
-	ta.SetHeight(3)
+	ta.SetHeight(inputTextareaLines)
 	ta.ShowLineNumbers = false
+	km := textarea.DefaultKeyMap
+	// Default maps ctrl+m to newline; disable so ctrl+m can open the model picker.
+	km.InsertNewline = key.NewBinding(key.WithDisabled())
+	ta.KeyMap = km
 
 	vp := viewport.New(80, 20)
 	vp.SetContent("")
 
 	delegate := list.NewDefaultDelegate()
+	delegate.ShowDescription = false
+	delegate.SetSpacing(1)
+	delegate.SetHeight(1)
+	styles := list.NewDefaultItemStyles()
+	styles.NormalTitle = styles.NormalTitle.Padding(0)
+	styles.SelectedTitle = styles.SelectedTitle.Padding(0, 0, 0, 1)
+	styles.DimmedTitle = styles.DimmedTitle.Padding(0)
+	delegate.Styles = styles
+
 	l := list.New([]list.Item{}, delegate, 0, 0)
-	l.Title = "Models"
+	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
@@ -96,6 +127,8 @@ func initialModel(cfg app.Config, opts app.RunOptions, modelName string) Model {
 		modelName:     modelName,
 		input:         ta,
 		viewport:      vp,
+		stickToBottom: true,
+		contextLimit:  32768,
 		modelList:     l,
 		settingsEdit:  cfg,
 		settingsField: 0,
@@ -103,7 +136,12 @@ func initialModel(cfg app.Config, opts app.RunOptions, modelName string) Model {
 }
 
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(tea.EnterAltScreen, m.refreshModels())
+	return tea.Batch(
+		tea.EnterAltScreen,
+		m.refreshModels(),
+		m.refreshFooterInfo(),
+		m.refreshContextLimit(),
+	)
 }
 
 type modelsLoadedMsg struct {
@@ -135,12 +173,21 @@ func (i modelItem) Description() string { return "" }
 func (i modelItem) FilterValue() string { return i.name }
 
 type genDoneMsg struct {
-	text string
-	err  error
+	text  string
+	err   error
+	usage genUsage
 }
 
 type genTokenMsg struct {
 	text string
+}
+
+type genReadyMsg struct {
+	contextLimit int
+}
+
+type genUsageMsg struct {
+	usage genUsage
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -152,7 +199,40 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		if m.screen == ScreenChat {
+			if handled, cmd := m.handleChatKeybinding(msg); handled {
+				return m, cmd
+			}
+			if handled, cmd := m.handleViewportScroll(msg); handled {
+				return m, cmd
+			}
+			if !m.busy {
+				var c tea.Cmd
+				m.input, c = m.input.Update(msg)
+				return m, c
+			}
+			return m, nil
+		}
 		return m.handleKey(msg)
+
+	case tea.MouseMsg:
+		if m.screen == ScreenChat {
+			var cmd tea.Cmd
+			m.viewport, cmd = m.viewport.Update(msg)
+			m.stickToBottom = m.viewport.AtBottom()
+			return m, cmd
+		}
+
+	case footerInfoMsg:
+		m.footerCWD = msg.cwd
+		m.footerBranch = msg.branch
+		return m, nil
+
+	case contextLimitMsg:
+		if msg.limit > 0 {
+			m.contextLimit = msg.limit
+		}
+		return m, nil
 
 	case modelsLoadedMsg:
 		if msg.err != nil {
@@ -162,6 +242,22 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.modelList.SetItems(msg.items)
 		if m.modelName == "" && len(msg.names) > 0 {
 			m.modelName = msg.names[0]
+		}
+		return m, m.refreshContextLimit()
+
+	case genReadyMsg:
+		if msg.contextLimit > 0 {
+			m.contextLimit = msg.contextLimit
+		}
+		if m.genCh != nil {
+			return m, waitGen(m.genCh)
+		}
+		return m, nil
+
+	case genUsageMsg:
+		m.applyUsage(msg.usage)
+		if m.genCh != nil {
+			return m, waitGen(m.genCh)
 		}
 		return m, nil
 
@@ -176,6 +272,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.genCh = nil
 		m.busy = false
 		m.cancel = nil
+		if msg.usage.ContextLimit > 0 || msg.usage.ContextTokens > 0 {
+			m.applyUsage(msg.usage)
+		}
 		if msg.err != nil {
 			m.errMsg = msg.err.Error()
 			m.statusMsg = "Error"
@@ -186,6 +285,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m.refreshViewport()
+		m.input.Focus()
 		return m, nil
 
 	case downloadDoneMsg:
@@ -237,35 +337,37 @@ func (m *Model) View() string {
 }
 
 func (m *Model) layout() {
-	headerH := 2
-	statusH := 1
-	inputH := 5
-	vpH := m.height - headerH - statusH - inputH - 2
+	fixedTop := topBarFixedLines()
+	fixedBottom := inputAreaFixedLines()
+	vpH := m.height - fixedTop - fixedBottom
 	if vpH < 4 {
 		vpH = 4
 	}
-	m.viewport.Width = m.width - 2
-	m.viewport.Height = vpH
-	m.input.SetWidth(m.width - 4)
 
-	m.modelList.SetSize(m.width-4, m.height-6)
+	m.viewport.Width = conversationViewportWidth(m.width)
+	m.viewport.Height = vpH
+	m.input.SetWidth(inputTextWidth(m.width))
+	m.input.SetHeight(inputTextareaLines)
+
+	m.layoutModelPicker()
+}
+
+func (m *Model) layoutModelPicker() {
+	const chrome = 5 // title, gap below title, hint, spacing
+	h := m.height - chrome
+	if h < 8 {
+		h = 8
+	}
+	w := m.width
+	if w < 20 {
+		w = 20
+	}
+	m.modelList.SetSize(w, h)
 }
 
 func (m *Model) refreshViewport() {
-	var b strings.Builder
-	for _, msg := range m.messages {
-		switch msg.Role {
-		case "user":
-			b.WriteString(styleUser.Render("You: "))
-			b.WriteString(msg.Content)
-		case "assistant":
-			b.WriteString(styleAssistant.Render("Assistant: "))
-			b.WriteString(msg.Content)
-		default:
-			b.WriteString(msg.Content)
-		}
-		b.WriteByte('\n')
+	m.viewport.SetContent(renderTranscript(m.messages, m.viewport.Width))
+	if m.stickToBottom {
+		m.viewport.GotoBottom()
 	}
-	m.viewport.SetContent(b.String())
-	m.viewport.GotoBottom()
 }

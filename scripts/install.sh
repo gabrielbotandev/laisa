@@ -114,11 +114,7 @@ if [[ ! -f "${CONFIG_DIR}/config.yaml" ]]; then
 default_model: ""
 default_device: CPU
 max_tokens: 1000
-system_prompt: |
-  You are a helpful local AI assistant running on the user's laptop.
-  Be concise, practical, and direct.
-  For code questions, give useful explanations and runnable examples when appropriate.
-  You do not have live internet access.
+system_prompt: ""
 YAML
 fi
 

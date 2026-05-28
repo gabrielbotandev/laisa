@@ -1,13 +1,17 @@
 package tui
 
-import tea "github.com/charmbracelet/bubbletea"
+import (
+	"github.com/charmbracelet/lipgloss"
+	tea "github.com/charmbracelet/bubbletea"
+)
 
 func (m *Model) viewModelPicker() string {
-	return lipglossJoin(
-		styleHelpTitle.Render("Select model"),
-		m.modelList.View(),
-		styleStatus.Render("Enter: select · Esc: back"),
-	)
+	m.layoutModelPicker()
+
+	title := styleHelpTitle.Margin(0, 0, 1, 0).Render("Select model")
+	hint := styleStatus.Render("Enter: select · Esc: back")
+
+	return lipgloss.JoinVertical(lipgloss.Left, title, m.modelList.View(), hint)
 }
 
 func (m *Model) handleModelPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -24,20 +28,9 @@ func (m *Model) handleModelPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m.screen = ScreenChat
-		return m, nil
+		return m, m.refreshContextLimit()
 	}
 	var cmd tea.Cmd
 	m.modelList, cmd = m.modelList.Update(msg)
 	return m, cmd
-}
-
-func lipglossJoin(parts ...string) string {
-	var b string
-	for i, p := range parts {
-		if i > 0 {
-			b += "\n"
-		}
-		b += p
-	}
-	return b
 }
