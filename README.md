@@ -171,6 +171,16 @@ Export `HF_TOKEN` with a valid Hugging Face token before downloading.
 
 Ensure `~/.local/bin` is in your `PATH`.
 
+**OpenVINO library errors (`libopenvino.so` not found)**
+
+Reinstall so `openvino`, `openvino-genai`, and `openvino-tokenizers` versions match:
+
+```bash
+./scripts/install.sh
+```
+
+If you upgraded packages manually, align them in `~/.local/share/shai/backend/requirements.txt` and run `pip install -r` inside the venv.
+
 ## Uninstall
 
 ```bash

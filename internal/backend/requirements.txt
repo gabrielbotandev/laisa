@@ -1,2 +1,4 @@
-openvino-genai==2025.4.0.0
+openvino-genai==2025.4.1.0
+openvino==2025.4.1
+openvino-tokenizers==2025.4.1.0
 huggingface_hub==0.30.2

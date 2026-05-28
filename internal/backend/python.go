@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -127,8 +128,38 @@ func pythonCmd(ctx context.Context, args ...string) (*exec.Cmd, error) {
 	}
 	fullArgs := append([]string{runner}, args...)
 	cmd := exec.CommandContext(ctx, python, fullArgs...)
-	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
+	env := append(os.Environ(), "PYTHONUNBUFFERED=1")
+	if libPath, err := openvinoLibPath(python); err == nil && libPath != "" {
+		env = append(env, prependLibPath(libPath)...)
+	}
+	cmd.Env = env
 	return cmd, nil
+}
+
+func prependLibPath(libPath string) []string {
+	if runtime.GOOS == "darwin" {
+		key := "DYLD_LIBRARY_PATH"
+		existing := os.Getenv(key)
+		if existing != "" {
+			return []string{key + "=" + libPath + ":" + existing}
+		}
+		return []string{key + "=" + libPath}
+	}
+	key := "LD_LIBRARY_PATH"
+	existing := os.Getenv(key)
+	if existing != "" {
+		return []string{key + "=" + libPath + ":" + existing}
+	}
+	return []string{key + "=" + libPath}
+}
+
+func openvinoLibPath(python string) (string, error) {
+	cmd := exec.Command(python, "-c", "import openvino, os; print(os.path.join(os.path.dirname(openvino.__file__), 'libs'))")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 // RunGenerate runs the generate subcommand and invokes onEvent for each JSONL line.
@@ -174,7 +205,6 @@ func RunDownload(ctx context.Context, opts DownloadOpts, onEvent func(Event)) er
 	if err != nil {
 		return err
 	}
-	cmd.Stderr = os.Stderr
 	return runJSONL(cmd, onEvent)
 }
 
@@ -193,7 +223,7 @@ func runJSONL(cmd *exec.Cmd, onEvent func(Event)) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		_, _ = io.Copy(&stderrBuf, stderr)
+		_, _ = io.Copy(io.MultiWriter(os.Stderr, &stderrBuf), stderr)
 	}()
 
 	if err := cmd.Start(); err != nil {
