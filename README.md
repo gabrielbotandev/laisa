@@ -1,6 +1,6 @@
 # Laisa
 
-**Laisa** is a terminal-first local AI assistant for Linux and macOS. It runs OpenVINO GenAI models on your machine with an interactive Bubble Tea TUI or one-shot CLI prompts.
+**Laisa** is a terminal-first local AI assistant for Linux and macOS. It lets you run Hugging Face models locally with OpenVINO GenAI, using either an interactive Bubble Tea TUI or fast one-shot CLI prompts.
 
 The user-facing command is only:
 
