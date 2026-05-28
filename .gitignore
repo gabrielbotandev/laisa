@@ -1,0 +1,19 @@
+# Binaries
+/shai
+/dist/
+
+# Local Python venv (dev only)
+.venv/
+**/.venv/
+
+# Go
+*.exe
+*.test
+*.out
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
