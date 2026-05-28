@@ -15,8 +15,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/shai/shai/internal/app"
-	"github.com/shai/shai/internal/version"
+	"github.com/gabrielbotandev/laisa/internal/app"
+	"github.com/gabrielbotandev/laisa/internal/version"
 )
 
 //go:embed runner.py

@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/shai/shai/cmd"
+	"github.com/gabrielbotandev/laisa/cmd"
 )
 
 func main() {

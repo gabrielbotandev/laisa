@@ -1,4 +1,4 @@
-module github.com/shai/shai
+module github.com/gabrielbotandev/laisa
 
 go 1.22
 

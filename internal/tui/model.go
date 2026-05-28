@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/shai/shai/internal/app"
+	"github.com/gabrielbotandev/laisa/internal/app"
 )
 
 // Screen identifies the active TUI view.

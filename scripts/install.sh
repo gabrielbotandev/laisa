@@ -5,14 +5,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PREFIX="${HOME}/.local/bin"
 WITH_MODEL=""
 WITH_NAME=""
-GO_LDFLAGS="-X github.com/shai/shai/internal/version.Version=0.1.0"
+GO_LDFLAGS="-X github.com/gabrielbotandev/laisa/internal/version.Version=0.1.0"
 
 usage() {
   cat <<EOF
 Usage: ./scripts/install.sh [options]
 
 Options:
-  --prefix PATH       Install shai binary to PATH (default: ~/.local/bin)
+  --prefix PATH       Install laisa binary to PATH (default: ~/.local/bin)
   --with-model REPO   Download a Hugging Face model after install
   --name NAME         Local model name (used with --with-model)
   -h, --help          Show this help
@@ -74,18 +74,18 @@ fi
 
 mkdir -p "$PREFIX"
 
-echo "Building shai..."
-(cd "$ROOT" && go build -ldflags "$GO_LDFLAGS" -o "$PREFIX/shai" .)
+echo "Building laisa..."
+(cd "$ROOT" && go build -ldflags "$GO_LDFLAGS" -o "$PREFIX/laisa" .)
 
 # Resolve data dir (same logic as Go app)
 if [[ "$OS" == "Darwin" ]]; then
-  DATA_DIR="${HOME}/Library/Application Support/shai"
+  DATA_DIR="${HOME}/Library/Application Support/laisa"
   CONFIG_DIR="$DATA_DIR"
-  CACHE_DIR="${HOME}/Library/Caches/shai"
+  CACHE_DIR="${HOME}/Library/Caches/laisa"
 else
-  DATA_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/shai"
-  CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/shai"
-  CACHE_DIR="${XDG_CACHE_HOME:-${HOME}/.cache}/shai"
+  DATA_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/laisa"
+  CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/laisa"
+  CACHE_DIR="${XDG_CACHE_HOME:-${HOME}/.cache}/laisa"
 fi
 
 MODELS_DIR="${DATA_DIR}/models"
@@ -125,7 +125,7 @@ if [[ -n "$WITH_MODEL" ]]; then
     NAME_ARGS=(--name "$WITH_NAME")
   fi
   echo "Downloading model $WITH_MODEL..."
-  "$PREFIX/shai" --download "$WITH_MODEL" "${NAME_ARGS[@]}"
+  "$PREFIX/laisa" --download "$WITH_MODEL" "${NAME_ARGS[@]}"
 fi
 
 case ":$PATH:" in
@@ -138,5 +138,5 @@ case ":$PATH:" in
 esac
 
 echo ""
-echo "Installed shai to $PREFIX/shai"
+echo "Installed laisa to $PREFIX/laisa"
 echo "Data directory: $DATA_DIR"

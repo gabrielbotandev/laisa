@@ -8,15 +8,15 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/shai/shai/internal/app"
-	"github.com/shai/shai/internal/backend"
+	"github.com/gabrielbotandev/laisa/internal/app"
+	"github.com/gabrielbotandev/laisa/internal/backend"
 )
 
 const chatShortcutsLine = "pgup/pgdn scroll · end latest · ctrl+m models · ctrl+d download · ctrl+s settings · ctrl+h help · ctrl+c quit"
 
 func (m *Model) viewChat() string {
 	topBar := styleTopBar.Width(m.width).Render(lipgloss.JoinVertical(lipgloss.Left,
-		styleHeader.Render("shai"),
+		styleHeader.Render("Laisa"),
 		styleShortcuts.Render(chatShortcutsLine),
 	))
 

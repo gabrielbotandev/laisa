@@ -30,16 +30,16 @@ done
 
 OS="$(uname -s)"
 if [[ "$OS" == "Darwin" ]]; then
-  DATA_DIR="${HOME}/Library/Application Support/shai"
+  DATA_DIR="${HOME}/Library/Application Support/laisa"
   CONFIG_DIR="$DATA_DIR"
-  CACHE_DIR="${HOME}/Library/Caches/shai"
+  CACHE_DIR="${HOME}/Library/Caches/laisa"
 else
-  DATA_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/shai"
-  CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/shai"
-  CACHE_DIR="${XDG_CACHE_HOME:-${HOME}/.cache}/shai"
+  DATA_DIR="${XDG_DATA_HOME:-${HOME}/.local/share}/laisa"
+  CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/laisa"
+  CACHE_DIR="${XDG_CACHE_HOME:-${HOME}/.cache}/laisa"
 fi
 
-BIN="${PREFIX}/shai"
+BIN="${PREFIX}/laisa"
 if [[ -f "$BIN" ]]; then
   rm -f "$BIN"
   echo "Removed $BIN"

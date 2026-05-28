@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/shai/shai/internal/app"
-	"github.com/shai/shai/internal/version"
+	"github.com/gabrielbotandev/laisa/internal/app"
+	"github.com/gabrielbotandev/laisa/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -16,12 +16,12 @@ func Execute() error {
 	return NewRootCmd().Execute()
 }
 
-// NewRootCmd builds the shai CLI.
+// NewRootCmd builds the laisa CLI.
 func NewRootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:   "shai [prompt]",
-		Short: "Local OpenVINO GenAI assistant",
-		Long: `shai is a terminal-first local AI assistant powered by OpenVINO GenAI.
+		Use:   "laisa [prompt]",
+		Short: "Local AI Shell Assistant (OpenVINO GenAI)",
+		Long: `Laisa is a terminal-first local AI assistant powered by OpenVINO GenAI.
 
 Run without arguments to open the interactive TUI, or pass a prompt for one-shot mode.`,
 		Args: cobra.ArbitraryArgs,
@@ -32,7 +32,7 @@ Run without arguments to open the interactive TUI, or pass a prompt for one-shot
 	root.Flags().BoolVar(&flags.showConfig, "config", false, "Print config path and contents")
 	root.Flags().BoolVar(&flags.listModels, "list-models", false, "List downloaded local models")
 	root.Flags().BoolVar(&flags.download, "download", false, "Download a model from Hugging Face")
-	root.Flags().StringVar(&flags.downloadRepo, "download-repo", "", "Hugging Face repo ID (use: shai --download REPO via positional)")
+	root.Flags().StringVar(&flags.downloadRepo, "download-repo", "", "Hugging Face repo ID (use: laisa --download REPO via positional)")
 	root.Flags().StringVar(&flags.modelName, "name", "", "Local model name for download")
 	root.Flags().StringVar(&flags.revision, "revision", "", "Hugging Face revision")
 	root.Flags().BoolVar(&flags.force, "force", false, "Overwrite existing model directory")
@@ -88,7 +88,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// shai --download REPO  → cobra leaves REPO in args when --download is bool
+	// laisa --download REPO  → cobra leaves REPO in args when --download is bool
 	if flags.download {
 		if len(args) > 0 {
 			flags.downloadRepo = args[0]
@@ -108,7 +108,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 
 	if hasStdin {
-		return fmt.Errorf("stdin provided but no prompt; use: cat file | shai \"your prompt\"")
+		return fmt.Errorf("stdin provided but no prompt; use: cat file | laisa \"your prompt\"")
 	}
 
 	return runTUI(flags)

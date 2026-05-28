@@ -16,12 +16,12 @@ func DataDir() (string, error) {
 
 	switch runtime.GOOS {
 	case "darwin":
-		return filepath.Join(home, "Library", "Application Support", "shai"), nil
+		return filepath.Join(home, "Library", "Application Support", "laisa"), nil
 	case "linux":
 		if v := os.Getenv("XDG_DATA_HOME"); v != "" {
-			return filepath.Join(v, "shai"), nil
+			return filepath.Join(v, "laisa"), nil
 		}
-		return filepath.Join(home, ".local", "share", "shai"), nil
+		return filepath.Join(home, ".local", "share", "laisa"), nil
 	default:
 		return "", fmt.Errorf("unsupported OS: %s (Linux and macOS only)", runtime.GOOS)
 	}
@@ -36,12 +36,12 @@ func ConfigDir() (string, error) {
 
 	switch runtime.GOOS {
 	case "darwin":
-		return filepath.Join(home, "Library", "Application Support", "shai"), nil
+		return filepath.Join(home, "Library", "Application Support", "laisa"), nil
 	case "linux":
 		if v := os.Getenv("XDG_CONFIG_HOME"); v != "" {
-			return filepath.Join(v, "shai"), nil
+			return filepath.Join(v, "laisa"), nil
 		}
-		return filepath.Join(home, ".config", "shai"), nil
+		return filepath.Join(home, ".config", "laisa"), nil
 	default:
 		return "", fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
@@ -56,12 +56,12 @@ func CacheDir() (string, error) {
 
 	switch runtime.GOOS {
 	case "darwin":
-		return filepath.Join(home, "Library", "Caches", "shai"), nil
+		return filepath.Join(home, "Library", "Caches", "laisa"), nil
 	case "linux":
 		if v := os.Getenv("XDG_CACHE_HOME"); v != "" {
-			return filepath.Join(v, "shai"), nil
+			return filepath.Join(v, "laisa"), nil
 		}
-		return filepath.Join(home, ".cache", "shai"), nil
+		return filepath.Join(home, ".cache", "laisa"), nil
 	default:
 		return "", fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}

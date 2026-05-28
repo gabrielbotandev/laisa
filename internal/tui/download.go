@@ -8,8 +8,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/shai/shai/internal/app"
-	"github.com/shai/shai/internal/backend"
+	"github.com/gabrielbotandev/laisa/internal/app"
+	"github.com/gabrielbotandev/laisa/internal/backend"
 )
 
 type downloadDoneMsg struct {

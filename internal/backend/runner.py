@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Internal OpenVINO GenAI backend for shai."""
+"""Internal OpenVINO GenAI backend for laisa."""
 
 from __future__ import annotations
 
@@ -244,7 +244,7 @@ def cmd_download(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="shai internal backend")
+    parser = argparse.ArgumentParser(description="laisa internal backend")
     sub = parser.add_subparsers(dest="command", required=True)
 
     gen = sub.add_parser("generate", help="Run text generation (JSON on stdin)")

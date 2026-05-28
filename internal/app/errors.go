@@ -12,7 +12,7 @@ func (ErrNoModel) Error() string {
 	return `No model found.
 
 Download one with:
-  shai --download OpenVINO/Phi-3.5-mini-instruct-int4-cw-ov --name Phi-3.5-mini`
+  laisa --download OpenVINO/Phi-3.5-mini-instruct-int4-cw-ov --name Phi-3.5-mini`
 }
 
 // ErrModelNotFound is returned when a named model does not exist.
@@ -49,7 +49,7 @@ func WrapNPUError(device string, err error) error {
 	return fmt.Errorf(`Failed to run model on NPU.
 
 Try CPU:
-  shai --device CPU "Say hello"
+  laisa --device CPU "Say hello"
 
 Original error:
 %w`, err)

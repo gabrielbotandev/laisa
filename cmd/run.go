@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/shai/shai/internal/app"
-	"github.com/shai/shai/internal/backend"
-	"github.com/shai/shai/internal/tui"
+	"github.com/gabrielbotandev/laisa/internal/app"
+	"github.com/gabrielbotandev/laisa/internal/backend"
+	"github.com/gabrielbotandev/laisa/internal/tui"
 )
 
 func runOneShot(flags cliFlags, prompt string) error {

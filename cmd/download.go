@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/shai/shai/internal/app"
-	"github.com/shai/shai/internal/backend"
+	"github.com/gabrielbotandev/laisa/internal/app"
+	"github.com/gabrielbotandev/laisa/internal/backend"
 )
 
 func runDownload(flags cliFlags) error {

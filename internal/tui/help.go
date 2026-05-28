@@ -34,7 +34,7 @@ Footer shows session token totals and context usage vs model limit.
 Press Esc to return to chat.`
 
 	return lipgloss.JoinVertical(lipgloss.Left,
-		styleHelpTitle.Render("shai help"),
+		styleHelpTitle.Render("Laisa help"),
 		styleBorder.Width(m.width).Render(body),
 	)
 }
